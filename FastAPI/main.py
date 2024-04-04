@@ -1,15 +1,20 @@
 import os
-from enum import Enum
-from ibm_watson_machine_learning.foundation_models.utils.enums import ModelTypes
 from ibm_watson_machine_learning.metanames import GenTextParamsMetaNames as GenParams
-from ibm_watson_machine_learning.foundation_models.utils.enums import DecodingMethods
 from ibm_watson_machine_learning.foundation_models import Model
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 import uuid
 import time
+import requests
+from bs4 import BeautifulSoup
+import yfinance as yf
+from googlesearch import search
+import re
+import json
 
 # uvicorn main:app --reload
+app = FastAPI()
+
 
 class ModelParameters(BaseModel):
     decoding_method: str
@@ -24,16 +29,28 @@ class ModelParameters(BaseModel):
     api_key: str
 
 
-app = FastAPI()
+class JobParameter(BaseModel):
+    job_id: str
 
 
-@app.get("/")
-async def root():
-    return {"message": "Deploy Python FastAPI on AWS EC2!"}
+class StockParameter(BaseModel):
+    stock: str
 
 
-@app.post("/generate/")
-async def llama_model(model_parameter: ModelParameters):
+class NewsParameter(BaseModel):
+    stock_symbol: str
+
+
+def historical_stock_data(stock_symbol):
+    stock = yf.Ticker(stock_symbol)
+
+    # get historical market data
+    hist = stock.history(period="1mo")
+    hist_str = hist.to_string()
+
+    return hist_str
+
+def write_generated_text(model_parameter: ModelParameters, job_id):
     credentials = {
         "url": "https://us-south.ml.cloud.ibm.com",
         "apikey": model_parameter.api_key
@@ -56,15 +73,24 @@ async def llama_model(model_parameter: ModelParameters):
         credentials=credentials,
         project_id=project_id)
 
-    job_id = uuid.uuid4()
     result = model.generate_text(prompt=model_parameter.input)
 
-    with open(str(job_id)+'.txt', 'w') as f:
+    with open(str(job_id)+'.txt', 'w', encoding='utf-8') as f:
         f.write(result)
 
-    response = {"job_id": job_id, "model_response": result}
+@app.get("/")
+async def root():
+    return {"message": "Deploy Python FastAPI on AWS EC2!"}
 
-    return response
+
+@app.post("/generate/")
+async def llama_model(model_parameter: ModelParameters, background_tasks: BackgroundTasks):
+    job_id = uuid.uuid4()
+
+    background_tasks.add_task(write_generated_text, model_parameter, job_id)
+
+    return {"job_id": job_id}
+
 
 @app.post("/check/")
 async def check_output(job_parameter: JobParameter):
@@ -72,12 +98,78 @@ async def check_output(job_parameter: JobParameter):
 
     while True:
         if os.path.isfile(filename):
-            with open(filename, encoding="utf8") as f:
-                generated_text = f.readlines()
-            break
+            with open(filename, encoding="utf8") as txtfile:
+                generated_text = txtfile.read()
+            result = {"model_response": generated_text}
+            return result
         else:
             time.sleep(5)
 
     # os.remove(filename)
-    result = {"model_response": generated_text}
-    return result
+
+@app.post("/stock/")
+async def check_symbol(stock_parameter: StockParameter):
+    query = stock_parameter.stock + " stock symbol"
+    results = search(query, advanced=True, num_results=1)
+    title = next(results).title
+
+    pattern = r"([\w ]+)\(([\w]+)\)"
+    match = re.search(pattern, title)
+
+    stock = match.group(1)
+    symbol = match.group(2)
+    # print(f"Stock: {stock}")
+    # print(f"Symbol: {symbol}")
+
+    symbol_response = {
+        "stock": stock,
+        "symbol": symbol
+    }
+
+    # Return the JSON response
+    return symbol_response
+
+
+@app.post("/news/")
+async def related_news(news_parameter: NewsParameter, background_tasks: BackgroundTasks):
+    stock_symbol = news_parameter.stock_symbol
+    url = "http://www.aastocks.com/tc/usq/quote/stock-news.aspx?symbol=" + stock_symbol
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    headers = soup.find_all("div", {"class": lambda x: x and x.startswith("newshead") and x.endswith("lettersp2")})
+    headers = [title.text.strip() for title in headers]
+
+    contents = soup.find_all("div", {"class": lambda x: x and x.startswith("newscontent") and x.endswith("lettersp2")})
+    contents = [description.text.strip().replace('\n', '').replace('"', '') for description in contents]
+
+    zipped_lists = zip(headers, contents)
+
+    news = "股票最近一個月的股價變動\n" + historical_stock_data(stock_symbol) + "\n"
+    for header, content in zipped_lists:
+        news += f"NewsTitle: {header}\nNewsContent: {content}\n"
+
+    return {"related_news": news}
+
+@app.post("/comparison/")
+async def compare_stocks(news_parameter: NewsParameter):
+    # stock 1
+    stock_symbol = news_parameter.stock_symbol
+    url = "http://www.aastocks.com/tc/usq/quote/stock-news.aspx?symbol=" + stock_symbol
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    headers = soup.find_all("div", {"class": lambda x: x and x.startswith("newshead") and x.endswith("lettersp2")})
+    headers = [title.text.strip() for title in headers]
+
+    contents = soup.find_all("div", {"class": lambda x: x and x.startswith("newscontent") and x.endswith("lettersp2")})
+    contents = [description.text.strip().replace('\n', '').replace('"', '') for description in contents]
+
+    zipped_lists = zip(headers, contents)
+
+    news = ""
+    for header, content in zipped_lists:
+        news += f"NewsTitle: {header}\nNewsContent: {content}\n"
+
+    return {"stocks_news": news}
+

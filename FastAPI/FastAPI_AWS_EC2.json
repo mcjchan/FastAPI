@@ -1,0 +1,277 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "description": "Minimal spec for commonly used features in watsonx.ai /generation API endpoint. Missing a few of parameters.",
+    "title": "Simplified watsonx.ai generation API",
+    "version": "1.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://54.153.165.103/",
+      "description": " Python FastAPI (watsonx.ai) on AWS EC2"
+    }
+  ],
+  "paths": {
+    "/generate/": {
+      "post": {
+        "description": "Generate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["model_id", "input", "project_id"],
+                "properties": {
+                  "api_key": {
+                    "type": "string",
+                    "description": "The API Key"
+                  },
+                  "model_id": {
+                    "type": "string",
+                    "description": "The ID of the model to be used for this request. Please refer to the list of models at https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-prompt-lab.html?context=wx",
+                    "example": "google/flan-ul2"
+                  },
+                  "input": {
+                    "type": "string",
+                    "description": "The input is the prompt to generate completions. Note: The method tokenizes the input internally. It is recommended not to leave any trailing spaces."
+                  },
+                  "project_id": {
+                    "type": "string",
+                    "description": "id for the associated watsonx project.",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[a-zA-Z0-9_-]*$",
+                    "example": "3e992422-d337-47f9-869a-0928e49a3ea6"
+                  },
+                  "decoding_method": {
+                    "type": "string",
+                    "description": "The value used to specify the decoding type, allowed values are 'greedy' or 'sample'.",
+                    "example": "sample"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "The value used to alter the next token probability distribution. The range is 0.00 to 2.00, a value set to 0.00 would make it deterministic.",
+                    "example": "0.7"
+                  },
+                  "max_new_tokens": {
+                    "type": "number",
+                    "description": "The maximum number of new tokens to be generated.",
+                    "example": "150"
+                  },
+                  "min_new_tokens": {
+                    "type": "number",
+                    "description": "The minimum number of new tokens to be generated.",
+                    "example": "50"
+                  },
+                  "repetition_penalty": {
+                    "type": "number",
+                    "description": "The value which represents the penalty for penalizing tokens that have already been generated or belong to the context.",
+                    "example": "1.10"
+                  },
+                  "stop_sequences": {
+                    "type": "array",
+                    "description": "The value which represents the penalty for penalizing tokens that have already been generated or belong to the context.",
+                    "example": ["\n\n"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job_id": {
+                      "description": "The ID of the job to be used for this request",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/check/": {
+      "post": {
+        "description": "Check Model Response",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["job_id"],
+                "properties": {
+                  "job_id": {
+                    "type": "string",
+                    "description": "The Job Key"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "model_response": {
+                      "description": "The generated text",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/news/": {
+      "post": {
+        "description": "Real time search for related news",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["stock_symbol"],
+                "properties": {
+                  "stock_symbol": {
+                    "type": "string",
+                    "description": "Stock Symbol"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "related_news": {
+                      "description": "Related News from AASTOCKS",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/stock/": {
+      "post": {
+        "description": "Stock Symbol",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["stock"],
+                "properties": {
+                  "stock": {
+                    "type": "string",
+                    "description": "Stock Name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stock": {
+                      "description": "Stock",
+                      "type": "string"
+                    },
+                    "symbol": {
+                      "description": "Stock Symbol",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/comparison/": {
+      "post": {
+        "description": "Stock Comparison",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["stock_symbol"],
+                "properties": {
+                  "stock_symbol": {
+                    "type": "string",
+                    "description": "Stock Symbol"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stocks_news": {
+                      "description": "Stocks News",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    }
+  }
+}
